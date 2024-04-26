@@ -1395,9 +1395,89 @@ suppressPackageStartupMessages({
 app <- iSEE(rse)
 shiny::runApp(app)
 
-
-
-# ======
-
-
-
+load("./rdata/2024年4月26日17点06分.RData")
+volcano_plot_func <- function(detable_data,
+                              highlight_gene,
+                              FeatureName = "SYMBOL",
+                              selectLab = NA,
+                              up_color = "red3",
+                              down_color = "navyblue",
+                              nosig_color = "grey50") {
+  # 创建自定义颜色向量
+  custom_colors <-
+    ifelse(
+      detable_data$P.Value < 0.05 &
+        detable_data$logFC > 0.5,
+      up_color,
+      ifelse(
+        detable_data$P.Value < 0.05 &
+          detable_data$logFC < -0.5,
+        down_color,
+        nosig_color
+      )
+    )
+  custom_colors[is.na(custom_colors)] <- nosig_color
+  
+  names(custom_colors)[custom_colors == up_color] <- 'high'
+  names(custom_colors)[custom_colors == down_color] <- 'low'
+  names(custom_colors)[custom_colors == nosig_color] <- 'nosig'
+  
+  # 创建火山图
+  volcano_plot <- EnhancedVolcano(
+    toptable = detable_data,
+    lab = detable_data[[FeatureName]],
+    x = "logFC",
+    y = "P.Value",
+    pCutoff = 0.05,
+    selectLab = selectLab,
+    drawConnectors = FALSE,
+    boxedLabels = FALSE,
+    parseLabels = TRUE,
+    labCol = 'black',
+    labFace = 'bold',
+    title = NULL,
+    subtitle = NULL,
+    # ylim = c(0, -log10(min(detable_data$P.Value[detable_data$P.Value > 0]))),
+    # xlim = c(min(detable_data$logFC), max(detable_data$logFC)),
+    caption = NULL,
+    FCcutoff = 0.5,
+    gridlines.major = FALSE,
+    gridlines.minor = FALSE,
+    legendPosition = 'none',
+    pointSize = 1,
+    colAlpha = 0.1,
+    colCustom = custom_colors
+  )
+  
+  # 突出显示指定的基因
+  volcano_plot <- volcano_plot +
+    geom_point(
+      data = subset(detable_data, SYMBOL %in% highlight_gene),
+      aes(x = logFC, y = -log10(P.Value)),
+      size = 2.5,
+      alpha = 1,
+      colour = ifelse(
+        subset(detable_data, SYMBOL %in% highlight_gene)$logFC > 0,
+        up_color,
+        down_color
+      )
+    ) +
+    xlab(expression(log[2] * "(fold change)")) +
+    ylab(expression(-lg * italic(" P"))) +
+    geom_text_repel(
+      data = subset(detable_data, SYMBOL %in% highlight_gene),
+      aes(
+        x = logFC,
+        y = -log10(P.Value),
+        label = SYMBOL
+      ),
+      fontface = "italic",
+      nudge_y = 0.5
+    )
+  
+  return(volcano_plot)
+  print(volcano_plot)
+}
+library(EnhancedVolcano)
+volcano_plot_func(treatedvsuntreated,
+highlight_gene = c("Lcn2","Saa2","Saa1","Saa3","Cyp7a1"))
